@@ -67,7 +67,6 @@ class BaseKernelMachine(BaseEstimator):
         self.k_func = k_func
         self.learner_id = learner_id
         self.normalized = normalized
-        self._estimator, self.param_grid = get_estimator(self.learner_id)
 
 
     def fit(self, X, y, sample_weight=None):
@@ -78,8 +77,6 @@ class BaseKernelMachine(BaseEstimator):
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples
             and n_features is the number of features.
-            For kernel="precomputed", the expected shape of X is
-            (n_samples, n_samples).
 
         y : array-like, shape (n_samples,)
             Target values (class labels in classification, real numbers in
@@ -113,6 +110,7 @@ class BaseKernelMachine(BaseEstimator):
                                 normalized=self.normalized)
         self._km.attach_to(self._train_X)
 
+        self._estimator, self.param_grid = get_estimator(self.learner_id)
         self._estimator.fit(X=self._km.full, y=self._train_y,
                             sample_weight=sample_weight)
 
@@ -131,8 +129,6 @@ class BaseKernelMachine(BaseEstimator):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            For kernel="precomputed", the expected shape of X is
-            [n_samples_test, n_samples_train]
 
         Returns
         -------
@@ -173,6 +169,19 @@ class BaseKernelMachine(BaseEstimator):
                 setattr(self, parameter, value)
 
         return self
+
+
+    def _more_tags(self):
+        """Handling specific cases with tags"""
+
+        from kernelmethods.numeric_kernels import Chi2Kernel, SigmoidKernel, \
+            HadamardKernel
+        if isinstance(self.k_func, Chi2Kernel):
+            return {'requires_positive_X': True}
+        elif isinstance(self.k_func, (SigmoidKernel, HadamardKernel)):
+            return {'poor_score': True}
+        else:
+            return dict()
 
 
 class KernelMachine(BaseKernelMachine, ClassifierMixin):
@@ -224,7 +233,6 @@ class KernelMachineRegressor(BaseKernelMachine, RegressorMixin):
         self.k_func = k_func
         self.learner_id = learner_id
         self.normalized = normalized
-        self._estimator, self.param_grid = get_estimator(self.learner_id)
 
 
 class BaseOptimalKernelMachine(BaseEstimator):
@@ -303,8 +311,6 @@ class BaseOptimalKernelMachine(BaseEstimator):
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples
             and n_features is the number of features.
-            For kernel="precomputed", the expected shape of X is
-            (n_samples, n_samples).
 
         y : array-like, shape (n_samples,)
             Target values (class labels in classification, real numbers in
@@ -368,8 +374,6 @@ class BaseOptimalKernelMachine(BaseEstimator):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            For kernel="precomputed", the expected shape of X is
-            [n_samples_test, n_samples_train]
 
         Returns
         -------
@@ -667,8 +671,6 @@ class OptimalKernelSVC(BaseOptimalKernelMachine, SVC):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            For kernel="precomputed", the expected shape of X is
-            [n_samples_test, n_samples_train]
 
         Returns
         -------

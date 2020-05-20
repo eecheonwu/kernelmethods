@@ -1,15 +1,17 @@
 
-import numpy as np
 from numbers import Number
-from pytest import raises, warns
-from hypothesis import given, strategies, unlimited
-from hypothesis import settings as hyp_settings
-from hypothesis import HealthCheck
-from kernelmethods.numeric_kernels import DEFINED_KERNEL_FUNCS, PolyKernel, \
-    GaussianKernel, LinearKernel, LaplacianKernel, SigmoidKernel, Chi2Kernel
-from kernelmethods.utils import check_callable
-from kernelmethods.base import KernelMatrix, KernelFromCallable, BaseKernelFunction
+
+import numpy as np
+from hypothesis import (HealthCheck, given, settings as hyp_settings, strategies)
+from pytest import raises
+
+from kernelmethods.base import KernelMatrix
+from kernelmethods.numeric_kernels import (Chi2Kernel, DEFINED_KERNEL_FUNCS,
+                                           GaussianKernel, LaplacianKernel,
+                                           LinearKernel, PolyKernel, SigmoidKernel,
+                                           HadamardKernel)
 from kernelmethods.operations import is_positive_semidefinite
+from kernelmethods.utils import check_callable
 
 default_feature_dim = 10
 range_feature_dim = [10, 50]
@@ -103,7 +105,7 @@ def _test_func_is_valid_kernel(kernel, sample_dim, num_samples):
 
 
 @hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
-              timeout=unlimited, suppress_health_check=HealthCheck.all())
+              suppress_health_check=HealthCheck.all())
 @given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
        strategies.integers(range_num_samples[0], range_num_samples[1]),
        strategies.integers(range_polynomial_degree[0], range_polynomial_degree[1]),
@@ -119,7 +121,7 @@ def test_polynomial_kernel(sample_dim, num_samples,
 
 
 @hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
-              timeout=unlimited, suppress_health_check=HealthCheck.all())
+              suppress_health_check=HealthCheck.all())
 @given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
        strategies.integers(range_num_samples[0], range_num_samples[1]),
        strategies.floats(min_value=0, max_value=1e6,
@@ -132,7 +134,7 @@ def test_gaussian_kernel(sample_dim, num_samples, sigma):
     _test_func_is_valid_kernel(gaussian, sample_dim, num_samples)
 
 @hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
-              timeout=unlimited, suppress_health_check=HealthCheck.all())
+              suppress_health_check=HealthCheck.all())
 @given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
        strategies.integers(range_num_samples[0], range_num_samples[1]))
 def test_linear_kernel(sample_dim, num_samples):
@@ -144,7 +146,7 @@ def test_linear_kernel(sample_dim, num_samples):
 
 
 @hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
-              timeout=unlimited, suppress_health_check=HealthCheck.all())
+              suppress_health_check=HealthCheck.all())
 @given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
        strategies.integers(range_num_samples[0], range_num_samples[1]),
        strategies.floats(min_value=0, max_value=1e6,
@@ -158,7 +160,7 @@ def test_laplacian_kernel(sample_dim, num_samples, gamma):
 
 
 @hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
-              timeout=unlimited, suppress_health_check=HealthCheck.all())
+              suppress_health_check=HealthCheck.all())
 @given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
        strategies.integers(range_num_samples[0], range_num_samples[1]),
        strategies.floats(min_value=0, max_value=1e6,
@@ -175,7 +177,7 @@ def test_sigmoid_kernel(sample_dim, num_samples, gamma, offset):
 
 
 @hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
-              timeout=unlimited, suppress_health_check=HealthCheck.all())
+              suppress_health_check=HealthCheck.all())
 @given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
        strategies.integers(range_num_samples[0], range_num_samples[1]),
        strategies.floats(min_value=0, max_value=1e6,
@@ -186,3 +188,39 @@ def test_chi2_kernel(sample_dim, num_samples, gamma):
     chi2 = Chi2Kernel(gamma=gamma, skip_input_checks=False)
     _test_for_all_kernels(chi2, sample_dim)
     _test_func_is_valid_kernel(chi2, sample_dim, num_samples)
+
+
+def test_chi2_kernel_misc():
+    """Tests specific for Laplacian kernel."""
+
+    chi2 = Chi2Kernel()
+    x = gen_random_array(10)
+    y = gen_random_array(10)
+
+    neg_x = x - x.mean() # some values would be negative
+    pos_y = np.abs(y)
+
+    from kernelmethods.config import Chi2NegativeValuesException
+    with raises(Chi2NegativeValuesException):
+        chi2(neg_x, pos_y)
+    with raises(Chi2NegativeValuesException):
+        chi2(pos_y, neg_x)
+
+@hyp_settings(max_examples=num_tests_psd_kernel, deadline=None,
+              suppress_health_check=HealthCheck.all())
+@given(strategies.integers(range_feature_dim[0], range_feature_dim[1]),
+       strategies.floats(min_value=1, max_value=1e6,
+                         allow_nan=False, allow_infinity=False))
+def test_Hadamard_kernel(sample_dim, alpha):
+    """Tests specific for Hadamard kernel."""
+
+    had = HadamardKernel(alpha=alpha, skip_input_checks=False)
+    _test_for_all_kernels(had, sample_dim, check_PSDness=False)
+
+
+def test_Hadamard_kernel_misc():
+    """Tests specific for Hadamard kernel."""
+
+    with raises(ValueError):
+        had = HadamardKernel(alpha=0)
+

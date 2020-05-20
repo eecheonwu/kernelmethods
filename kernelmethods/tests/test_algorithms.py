@@ -17,6 +17,14 @@ warnings.simplefilter('ignore')
 rnd = np.random.RandomState(0)
 np.set_printoptions(precision=3, linewidth=120)
 
+sample_dim = 5
+n_training = 100
+n_testing = 30
+
+all_warns = set()
+warn_line = '{dashes} IGNORED WARNING {dashes}'.format(dashes='-' * 15)
+dash_line = '-' * 50
+
 
 def gen_random_sample(num_samples, sample_dim):
     """To better control precision and type of floats"""
@@ -25,9 +33,10 @@ def gen_random_sample(num_samples, sample_dim):
     return np.random.rand(num_samples, sample_dim)
 
 
-sample_dim = 5
-n_training = 100
-n_testing = 30
+def warn_dev(msg):
+    if msg not in all_warns:
+        print('\n\n{}\n  {}\n{}\n'.format(warn_line, msg, dash_line))
+        all_warns.add(msg)
 
 
 def _test_estimator_can_fit_predict(estimator, est_name=None):
@@ -48,37 +57,39 @@ def _test_estimator_can_fit_predict(estimator, est_name=None):
     except (KMNormError, Chi2NegativeValuesException,
             KernelMethodsException, KernelMethodsWarning,
             RuntimeError) as kme:
-        print('KernelMethodsException encountered during estimator checks - '
-              'ignoring it!\n Estimator: {}'.format(est_name))
+        warn_dev('KernelMethodsException encountered during estimator checks - '
+                 'ignoring it!\n Estimator: {}'.format(est_name))
         # traceback.print_exc()
         # pass
     except Exception as exc:
         exc_msg = str(exc)
         # Given unresolved issues with sklearn estimator checks, not enforcing them!
         if '__dict__' in exc_msg:
-            print('Ignoring the sklearn __dict__ check')
+            warn_dev('Ignoring the sklearn __dict__ check')
             pass
         elif 'not greater than' in exc_msg:
-            print('Ignoring accuracy check from sklearn')
+            warn_dev('Ignoring accuracy check from sklearn')
         elif "the number of features at training time" in exc_msg:
             if 'OptimalKernel' in est_name:
-                print('Ignoring shape mismatch between train and test for '
-                      'OptimalKernel estimators (need for two-sample KM product)')
+                warn_dev('Ignoring shape mismatch between train and test for '
+                         'OptimalKernel estimators (need for two-sample KM product)')
         else:
-            raise TypeError('atypical failed check for {}\nMessage: {}\n'
-                            ''.format(est_name, exc_msg))
+            raise exc
+            # raise TypeError('atypical failed check for {}\nMessage: {}\n'
+            #                 ''.format(est_name, exc_msg))
 
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            estimator.fit(train_data, labels)
-    except:
-        raise RuntimeError('{} is unable to fit to training data!'.format(est_name))
-
-    try:
-        estimator.predict(test_data)
-    except:
-        raise RuntimeError('{} is unable to make predictions'.format(est_name))
+    # try:
+    #     with warnings.catch_warnings():
+    #         warnings.simplefilter("ignore")
+    #         estimator.fit(train_data, labels)
+    # except:
+    #     raise RuntimeError('{} is unable to fit to training data!'.format(
+    #     est_name))
+    #
+    # try:
+    #     estimator.predict(test_data)
+    # except:
+    #     raise RuntimeError('{} is unable to make predictions'.format(est_name))
 
 
 def test_optimal_kernel_estimators():
@@ -118,6 +129,10 @@ def test_kernel_machine():
                 raise RuntimeError('Unable to instantiate KernelMachine '
                                    'with this this ker func {}!'.format(ker_func))
 
-            print('\n{}'.format(k_machine))
-            _test_estimator_can_fit_predict(k_machine,
-                                            'kernel machine with ' + str(ker_func))
+            # print('\n{}'.format(k_machine))
+            try:
+                _test_estimator_can_fit_predict(
+                    k_machine, 'kernel machine with ' + str(ker_func))
+            except Exception as exc:
+                raise
+
